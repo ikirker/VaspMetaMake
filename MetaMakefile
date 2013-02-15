@@ -45,6 +45,21 @@ LIB_MAKEVARS="FC=$(F90)"
 # Probably shouldn't need to modify anything below this line.
 #
 
+SERIAL_MAKEVARS      =
+MPI_MAKEVARS         ="$(SERIAL_MAKEVARS) F90=$(MPIF90) CPP+=-DMPI"
+
+ifeq ($(WITH_SCALAPACK),"y")
+  MPI_MAKEVARS+="CPP+=$(SCALAPACK_CPP_FLAGS) SCA=$(SCALAPACK_LD_FLAGS)"
+endif
+
+SERIAL_NOCD_MAKEVARS ="$(SERIAL_MAKEVARS)"
+SERIAL_CD_MAKEVARS   ="$(SERIAL_MAKEVARS) CPP+=-DNGXhalf"
+SERIAL_GAMMA_MAKEVARS="$(SERIAL_MAKEVARS) CPP+=-DwNGXhalf"
+MPI_NOCD_MAKEVARS    ="$(MPI_MAKEVARS)"
+MPI_CD_MAKEVARS      ="$(MPI_MAKEVARS) CPP+=-DNGZhalf"
+MPI_GAMMA_MAKEVARS   ="$(MPI_MAKEVARS) CPP+=-DwNGZhalf"
+
+
 
 # Vasp doesn't install any documentation, so I'm not sure the other things that usually go here are necessary. It might be worth expanding it to include an exec-prefix and the other one (the place for non-binary files) for PSP storage, though?
 
