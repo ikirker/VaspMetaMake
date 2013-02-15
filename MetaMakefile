@@ -10,7 +10,7 @@ VASP_VER = $(VER_MAJ).$(VER_MIN).$(VER_MIC)
 MAKE=make
 
 CC    =icc
-FC    =ifort
+F90   =ifort
 MPIF90=mpif90
 
 SERIAL_LAPACK_FLAGS=-mkl
@@ -38,6 +38,8 @@ endif
 
 LIB_MAKEFILE   =makefile.linux_ifc_P4
 NONLIB_MAKEFILE=makefile.linux_ifc_P4
+
+LIB_MAKEVARS="FC=$(F90)"
 
 #######################################################################################
 # Probably shouldn't need to modify anything below this line.
@@ -98,22 +100,22 @@ test check:
 $(SERIAL_NOCD_DIR) $(SERIAL_CD_DIR) $(SERIAL_GAMMA_DIR) $(MPI_NOCD_DIR) $(MPI_CD_DIR) $(MPI_GAMMA_DIR): vasp.$(VER_MAJ).$(VER_MIN).$(VER_MIC).tar.gz
 	mkdir $@ && tar -xzf vasp.$(VER_MAJ).$(VER_MIN).$(VER_MIC).tar.gz --strip-components 1 -C $@
 
-$(SERIAL_NOCD_DIR)/vasp: vasp.5.lib/libdmy.a
+$(SERIAL_NOCD_DIR)/vasp: vasp.5.lib/libdmy.a $(SERIAL_NOCD_DIR)
 	cd $(SERIAL_NOCD_DIR) && $(MAKE) -f $(NONLIB_MAKEFILE) $(SERIAL_NOCD_MAKEVARS)
 
-$(SERIAL_CD_DIR)/vasp: vasp.5.lib/libdmy.a
+$(SERIAL_CD_DIR)/vasp: vasp.5.lib/libdmy.a $(SERIAL_CD_DIR)
 	cd $(SERIAL_CD_DIR) && $(MAKE) -f $(NONLIB_MAKEFILE) $(SERIAL_CD_MAKEVARS)
 
-$(SERIAL_GAMMA_DIR)/vasp: vasp.5.lib/libdmy.a
+$(SERIAL_GAMMA_DIR)/vasp: vasp.5.lib/libdmy.a $(SERIAL_GAMMA_DIR)
 	cd $(SERIAL_GAMMA_DIR) && $(MAKE) -f $(NONLIB_MAKEFILE) $(SERIAL_GAMMA_MAKEVARS)
 
-$(MPI_NOCD_DIR)/vasp: vasp.5.lib/libdmy.a
+$(MPI_NOCD_DIR)/vasp: vasp.5.lib/libdmy.a $(MPI_NOCD_DIR)
 	cd $(MPI_NOCD_DIR) && $(MAKE) -f $(NONLIB_MAKEFILE) $(MPI_NOCD_MAKEVARS)
 
-$(MPI_CD_DIR)/vasp: vasp.5.lib/libdmy.a
+$(MPI_CD_DIR)/vasp: vasp.5.lib/libdmy.a $(MPI_CD_DIR)
 	cd $(MPI_CD_DIR) && $(MAKE) -f $(NONLIB_MAKEFILE) $(MPI_CD_MAKEVARS)
 
-$(MPI_GAMMA_DIR)/vasp: vasp.5.lib/libdmy.a
+$(MPI_GAMMA_DIR)/vasp: vasp.5.lib/libdmy.a $(MPI_GAMMA_DIR)
 	cd $(MPI_GAMMA_DIR) && $(MAKE) -f $(NONLIB_MAKEFILE) $(MPI_GAMMA_MAKEVARS)
 
 $(SERIAL_NOCD_BIN): $(SERIAL_NOCD_DIR)/vasp
