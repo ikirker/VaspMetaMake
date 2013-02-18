@@ -16,55 +16,69 @@ MPIF90=mpif90
 SERIAL_LAPACK_FLAGS=-mkl
 SERIAL_BLAS_FLAGS= 
 
-MPI_LAPACK_FLAGS="-Wl,--start-group  $(MKLROOT)/lib/intel64/libmkl_intel_lp64.a $(MKLROOT)/lib/intel64/libmkl_sequential.a $(MKLROOT)/lib/intel64/libmkl_core.a -Wl,--end-group -lm"
+MPI_LAPACK_FLAGS=-Wl,--start-group  $(MKLROOT)/lib/intel64/libmkl_intel_lp64.a $(MKLROOT)/lib/intel64/libmkl_sequential.a $(MKLROOT)/lib/intel64/libmkl_core.a -Wl,--end-group -lm
+MPI_LAPACK_FLAGS=-Wl,--start-group  $(MKLROOT)/lib/em64t/libmkl_intel_lp64.a $(MKLROOT)/lib/em64t/libmkl_sequential.a $(MKLROOT)/lib/em64t/libmkl_core.a -Wl,--end-group -lm
 MPI_BLAS_FLAGS=
 
 SCALAPACK_LD_FLAGS=$(MKLROOT)/lib/intel64/libmkl_scalapack_lp64.a $(MKLROOT)/lib/intel64/libmkl_blacs_lp64.a
+SCALAPACK_LD_FLAGS=$(MKLROOT)/lib/em64t/libmkl_scalapack_lp64.a $(MKLROOT)/lib/em64t/libmkl_blacs_lp64.a
 SCALAPACK_CPP_FLAGS=-DscaLAPACK
 
-FFTW_TYPE="fftw"
-
-ifeq ($(FFTW_TYPE),fftw)
-  SERIAL_FFTW_OBJS="fftw3d.o fft3dlib.o $FFTWDIR/libfftw3.a"
-  MPI_FFTW_OBJS   ="fftmpiw.o fftmpi_map.o fftw3d.o fft3dlib.o $FFTWDIR/libfftw3.a"
+# The FFTWLIB environment variable is set by the FFTW modules
+ifeq ($(FFTWLIB),fftw)
+  SERIAL_FFT_OBJS=fftw3d.o fft3dlib.o $(FFTWDIR)/libfftw3.a
+  MPI_FFT_OBJS   =fftmpiw.o fftmpi_map.o fftw3d.o fft3dlib.o $(FFTWDIR)/libfftw3.a
+	F90 += -I$(FFTWINCLUDE)
+	MPIF90 += -I$(FFTWINCLUDE)
 else
-  SERIAL_FFTW_OBJS="fft3dfurth.o fft3dlib.o"
-  MPI_FFTW_OBJS   ="fftmpi.o fftmpi_map.o fft3dfurth.o fft3dlib.o"
+  SERIAL_FFT_OBJS=fft3dfurth.o fft3dlib.o
+  MPI_FFT_OBJS   =fftmpi.o fftmpi_map.o fft3dfurth.o fft3dlib.o
 endif
 
-# VASP doesn't really use a prefix for anything, so it's fine to build and then move later if you like.
+# VASP doesn't really use a prefix for anything, so it's 
+#   fine to build and then move later if you like.
 #PREFIX=/opt/vasp-$(VASP_VER)
 
 
 LIB_MAKEFILE   =makefile.linux_ifc_P4
 NONLIB_MAKEFILE=makefile.linux_ifc_P4
 
-LIB_MAKEVARS="FC=$(F90)"
+LIB_MAKEVARS=FC=$(F90)
 
 #######################################################################################
 # Probably shouldn't need to modify anything below this line.
 #
 
-SERIAL_MAKEVARS      =
-MPI_MAKEVARS         ="$(SERIAL_MAKEVARS) F90=$(MPIF90) CPP+=-DMPI"
+BASE_MAKEVARS        =CPP="\$$(CPP_)  -DIFC -DCACHE_SIZE=12000 -DPGF90 -Davoidalloc -DHOST=\\\"LinuxIFC\\\" " 
+SERIAL_MAKEVARS      =$(BASE_MAKEVARS) \
+											FC=$(F90) \
+											'BLAS=$(SERIAL_BLAS_FLAGS)' \
+											'LAPACK=$(SERIAL_LAPACK_FLAGS)' \
+											'FFT3D=$(SERIAL_FFT_OBJS)'
+MPI_MAKEVARS         =$(BASE_MAKEVARS) \
+											FC=$(MPIF90) \
+											CPP+=-DMPI \
+											'BLAS=$(MPI_BLAS_FLAGS)' \
+											'LAPACK=$(MPI_LAPACK_FLAGS)' \
+											'FFT3D=$(MPI_FFT_OBJS)'
 
 ifeq ($(WITH_SCALAPACK),"y")
-  MPI_MAKEVARS+="CPP+=$(SCALAPACK_CPP_FLAGS) SCA=$(SCALAPACK_LD_FLAGS)"
+  MPI_MAKEVARS+="CPP+=$(SCALAPACK_CPP_FLAGS)" "SCA=$(SCALAPACK_LD_FLAGS)"
 endif
 
-SERIAL_NOCD_MAKEVARS ="$(SERIAL_MAKEVARS)"
-SERIAL_CD_MAKEVARS   ="$(SERIAL_MAKEVARS) CPP+=-DNGXhalf"
-SERIAL_GAMMA_MAKEVARS="$(SERIAL_MAKEVARS) CPP+=-DwNGXhalf"
-MPI_NOCD_MAKEVARS    ="$(MPI_MAKEVARS)"
-MPI_CD_MAKEVARS      ="$(MPI_MAKEVARS) CPP+=-DNGZhalf"
-MPI_GAMMA_MAKEVARS   ="$(MPI_MAKEVARS) CPP+=-DwNGZhalf"
+SERIAL_NOCD_MAKEVARS =$(SERIAL_MAKEVARS)
+SERIAL_CD_MAKEVARS   =$(SERIAL_MAKEVARS) CPP+=-DNGXhalf
+SERIAL_GAMMA_MAKEVARS=$(SERIAL_MAKEVARS) CPP+=-DwNGXhalf
+MPI_NOCD_MAKEVARS    =$(MPI_MAKEVARS)
+MPI_CD_MAKEVARS      =$(MPI_MAKEVARS) CPP+=-DNGZhalf
+MPI_GAMMA_MAKEVARS   =$(MPI_MAKEVARS) CPP+=-DwNGZhalf
 
 
 
 # Vasp doesn't install any documentation, so I'm not sure the other things that usually go here are necessary. It might be worth expanding it to include an exec-prefix and the other one (the place for non-binary files) for PSP storage, though?
 
 BUILD_DIR       =./
-EXE_DIR         = $(BUILD_DIR)/exe
+EXE_DIR         =$(BUILD_DIR)/exe
 
 SERIAL_NOCD_DIR = $(BUILD_DIR)/$(VASP_VER)_src_serial_nocd
 SERIAL_CD_DIR   = $(BUILD_DIR)/$(VASP_VER)_src_serial_cd
@@ -74,7 +88,7 @@ MPI_NOCD_DIR    = $(BUILD_DIR)/$(VASP_VER)_src_mpi_nocd
 MPI_CD_DIR      = $(BUILD_DIR)/$(VASP_VER)_src_mpi_cd
 MPI_GAMMA_DIR   = $(BUILD_DIR)/$(VASP_VER)_src_mpi_gamma
 
-SERIAL_NOCD_BIN =$(EXEDIR)/vasp-$(VASP_VER)-serial_nocd
+SERIAL_NOCD_BIN =$(EXE_DIR)/vasp-$(VASP_VER)-serial_nocd
 SERIAL_CD_BIN   =$(EXE_DIR)/vasp-$(VASP_VER)-serial_cd 
 SERIAL_GAMMA_BIN=$(EXE_DIR)/vasp-$(VASP_VER)-serial_gamma
 MPI_NOCD_BIN    =$(EXE_DIR)/vasp-$(VASP_VER)-mpi_nocd 
@@ -109,7 +123,7 @@ distclean:
 	:
 
 test check:
-  # Probably want to ask for a variable that does something like specify the queue submit commands, to test the MPI versions?
+	# Probably want to ask for a variable that does something like specify the queue submit commands, to test the MPI versions?
 	:
 
 $(SERIAL_NOCD_DIR) $(SERIAL_CD_DIR) $(SERIAL_GAMMA_DIR) $(MPI_NOCD_DIR) $(MPI_CD_DIR) $(MPI_GAMMA_DIR): vasp.$(VER_MAJ).$(VER_MIN).$(VER_MIC).tar.gz
@@ -133,22 +147,22 @@ $(MPI_CD_DIR)/vasp: vasp.5.lib/libdmy.a $(MPI_CD_DIR)
 $(MPI_GAMMA_DIR)/vasp: vasp.5.lib/libdmy.a $(MPI_GAMMA_DIR)
 	cd $(MPI_GAMMA_DIR) && $(MAKE) -f $(NONLIB_MAKEFILE) $(MPI_GAMMA_MAKEVARS)
 
-$(SERIAL_NOCD_BIN): $(SERIAL_NOCD_DIR)/vasp
+$(SERIAL_NOCD_BIN): $(SERIAL_NOCD_DIR)/vasp $(EXE_DIR)
 	cp $(SERIAL_NOCD_DIR)/vasp $(SERIAL_NOCD_BIN)
 
-$(SERIAL_CD_BIN): $(SERIAL_CD_DIR)/vasp
+$(SERIAL_CD_BIN): $(SERIAL_CD_DIR)/vasp $(EXE_DIR)
 	cp $(SERIAL_CD_DIR)/vasp $(SERIAL_CD_BIN)
 
-$(SERIAL_GAMMA_BIN): $(SERIAL_GAMMA_DIR)/vasp
+$(SERIAL_GAMMA_BIN): $(SERIAL_GAMMA_DIR)/vasp $(EXE_DIR)
 	cp $(SERIAL_GAMMA_DIR)/vasp $(SERIAL_GAMMA_BIN)
 
-$(MPI_NOCD_BIN): $(MPI_NOCD_DIR)/vasp
+$(MPI_NOCD_BIN): $(MPI_NOCD_DIR)/vasp $(EXE_DIR)
 	cp $(MPI_NOCD_DIR)/vasp $(MPI_NOCD_BIN)
 
-$(MPI_CD_BIN): $(MPI_CD_DIR)/vasp
+$(MPI_CD_BIN): $(MPI_CD_DIR)/vasp $(EXE_DIR)
 	cp $(MPI_CD_DIR)/vasp $(MPI_CD_BIN)
 
-$(MPI_GAMMA_BIN): $(MPI_GAMMA_DIR)/vasp
+$(MPI_GAMMA_BIN): $(MPI_GAMMA_DIR)/vasp $(EXE_DIR)
 	cp $(MPI_GAMMA_DIR)/vasp $(MPI_GAMMA_BIN)
 
 vasp.$(VER_MAJ).lib/libdmy.a: $(BUILD_DIR)/vasp.5.lib
@@ -156,5 +170,8 @@ vasp.$(VER_MAJ).lib/libdmy.a: $(BUILD_DIR)/vasp.5.lib
 
 vasp.$(VER_MAJ).lib: vasp.$(VER_MAJ).lib.tar.gz
 	tar -xzf vasp.$(VER_MAJ).lib.tar.gz
+
+$(EXE_DIR):
+	mkdir $(EXE_DIR)
 
 
