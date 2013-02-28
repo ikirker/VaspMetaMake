@@ -7,7 +7,8 @@ VER_MIN=2
 VER_MIC=12
 VASP_VER = $(VER_MAJ).$(VER_MIN).$(VER_MIC)
 
-MAKE=make
+# VASP can't build in parallel due to some unspecified dependencies.
+MAKE=make -j 1
 
 CC    =icc
 F90   =ifort
@@ -16,13 +17,15 @@ MPIF90=mpif90
 SERIAL_LAPACK_FLAGS=-mkl
 SERIAL_BLAS_FLAGS= 
 
-MPI_LAPACK_FLAGS=-Wl,--start-group  $(MKLROOT)/lib/intel64/libmkl_intel_lp64.a $(MKLROOT)/lib/intel64/libmkl_sequential.a $(MKLROOT)/lib/intel64/libmkl_core.a -Wl,--end-group -lm
-MPI_LAPACK_FLAGS=-Wl,--start-group  $(MKLROOT)/lib/em64t/libmkl_intel_lp64.a $(MKLROOT)/lib/em64t/libmkl_sequential.a $(MKLROOT)/lib/em64t/libmkl_core.a -Wl,--end-group -lm
-MPI_BLAS_FLAGS=
-
 SCALAPACK_LD_FLAGS=$(MKLROOT)/lib/intel64/libmkl_scalapack_lp64.a $(MKLROOT)/lib/intel64/libmkl_blacs_lp64.a
 SCALAPACK_LD_FLAGS=$(MKLROOT)/lib/em64t/libmkl_scalapack_lp64.a $(MKLROOT)/lib/em64t/libmkl_blacs_lp64.a
 SCALAPACK_CPP_FLAGS=-DscaLAPACK
+
+# The scalapack build variable exists but isn't included in any line by default, so we ram
+#  it in with the LAPACK ones.
+MPI_LAPACK_FLAGS=-Wl,--start-group  $(MKLROOT)/lib/intel64/libmkl_intel_lp64.a $(MKLROOT)/lib/intel64/libmkl_sequential.a $(MKLROOT)/lib/intel64/libmkl_core.a $(SCALAPACK_LD_FLAGS) -Wl,--end-group -lm
+MPI_LAPACK_FLAGS=-Wl,--start-group  $(MKLROOT)/lib/em64t/libmkl_intel_lp64.a $(MKLROOT)/lib/em64t/libmkl_sequential.a $(MKLROOT)/lib/em64t/libmkl_core.a $(SCALAPACK_LD_FLAGS) -Wl,--end-group -lm
+MPI_BLAS_FLAGS=
 
 # The FFTWLIB environment variable is set by the FFTW modules
 ifeq ($(FFTWLIB),fftw)
@@ -51,16 +54,18 @@ LIB_MAKEVARS=FC=$(F90)
 
 BASE_MAKEVARS        =CPP="\$$(CPP_)  -DIFC -DCACHE_SIZE=12000 -DPGF90 -Davoidalloc -DHOST=\\\"LinuxIFC\\\" " 
 SERIAL_MAKEVARS      =$(BASE_MAKEVARS) \
-											FC=$(F90) \
+											'FC=$(F90)' \
 											'BLAS=$(SERIAL_BLAS_FLAGS)' \
 											'LAPACK=$(SERIAL_LAPACK_FLAGS)' \
 											'FFT3D=$(SERIAL_FFT_OBJS)'
+
 MPI_MAKEVARS         =$(BASE_MAKEVARS) \
-											FC=$(MPIF90) \
+											'FC=$(MPIF90)' \
 											CPP+=-DMPI \
 											'BLAS=$(MPI_BLAS_FLAGS)' \
 											'LAPACK=$(MPI_LAPACK_FLAGS)' \
-											'FFT3D=$(MPI_FFT_OBJS)'
+											'FFT3D=$(MPI_FFT_OBJS)' \
+                      'CPP+=$(SCALAPACK_CPP_FLAGS)' 
 
 ifeq ($(WITH_SCALAPACK),"y")
   MPI_MAKEVARS+="CPP+=$(SCALAPACK_CPP_FLAGS)" "SCA=$(SCALAPACK_LD_FLAGS)"
