@@ -9,3 +9,8 @@ In the simplest case, to use, just have a `vasp.5.x.x.tar.gz` and `vasp.5.lib.ta
 
     make -f MetaMakefile
 
+Since the 6 different versions can be built in parallel, though, you may want to use:
+
+    make -f MetaMakefile -j 6
+
+Or something like that. The individual VASP builds can't be parallelised because there are unresolved dependencies, but this is handled by the MetaMakefile, which only uses -j 1 for each VASP make.
