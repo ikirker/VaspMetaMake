@@ -2,10 +2,6 @@
 # This is a makefile to build VASP using its own makefiles but overriding values.
 #
 
-VER_MAJ=5
-VER_MIN=2
-VER_MIC=12
-VASP_VER = $(VER_MAJ).$(VER_MIN).$(VER_MIC)
 
 # VASP can't build in parallel due to some unspecified dependencies.
 MAKE=make -j 1
@@ -14,17 +10,24 @@ CC    =icc
 F90   =ifort
 MPIF90=mpif90
 
-SERIAL_LAPACK_FLAGS=-mkl
+SERIAL_LAPACK_FLAGS=-L$(MKL) -mkl
 SERIAL_BLAS_FLAGS= 
 
-SCALAPACK_LD_FLAGS=$(MKLROOT)/lib/intel64/libmkl_scalapack_lp64.a $(MKLROOT)/lib/intel64/libmkl_blacs_lp64.a
-SCALAPACK_LD_FLAGS=$(MKLROOT)/lib/em64t/libmkl_scalapack_lp64.a $(MKLROOT)/lib/em64t/libmkl_blacs_lp64.a
+# Older versions of MKL may require 'em64t' here
+INTEL_ARCH=intel64
+
+SCALAPACK_LD_FLAGS=$(MKLROOT)/lib/$(INTEL_ARCH)/libmkl_scalapack_lp64.a $(MKLROOT)/lib/$(INTEL_ARCH)/libmkl_blacs_lp64.a
 SCALAPACK_CPP_FLAGS=-DscaLAPACK
 
 # The scalapack build variable exists but isn't included in any line by default, so we ram
 #  it in with the LAPACK ones.
-MPI_LAPACK_FLAGS=-Wl,--start-group  $(MKLROOT)/lib/intel64/libmkl_intel_lp64.a $(MKLROOT)/lib/intel64/libmkl_sequential.a $(MKLROOT)/lib/intel64/libmkl_core.a $(SCALAPACK_LD_FLAGS) -Wl,--end-group -lm
-MPI_LAPACK_FLAGS=-Wl,--start-group  $(MKLROOT)/lib/em64t/libmkl_intel_lp64.a $(MKLROOT)/lib/em64t/libmkl_sequential.a $(MKLROOT)/lib/em64t/libmkl_core.a $(SCALAPACK_LD_FLAGS) -Wl,--end-group -lm
+MPI_LAPACK_FLAGS=-Wl,--start-group  \
+								 $(MKLROOT)/lib/$(INTEL_ARCH)/libmkl_intel_lp64.a \
+                 $(MKLROOT)/lib/$(INTEL_ARCH)/libmkl_sequential.a \
+								 $(MKLROOT)/lib/$(INTEL_ARCH)/libmkl_core.a       \
+								 $(SCALAPACK_LD_FLAGS)                            \
+								 -Wl,--end-group    \
+								 -lm
 MPI_BLAS_FLAGS=
 
 # The FFTWLIB environment variable is set by the FFTW modules
@@ -33,9 +36,11 @@ ifeq ($(FFTWLIB),fftw)
   MPI_FFT_OBJS   =fftmpiw.o fftmpi_map.o fftw3d.o fft3dlib.o $(FFTWDIR)/libfftw3.a
 	F90 += -I$(FFTWINCLUDE)
 	MPIF90 += -I$(FFTWINCLUDE)
+	$(info Using FFTW from $(FFTWDIR)...)
 else
   SERIAL_FFT_OBJS=fft3dfurth.o fft3dlib.o
   MPI_FFT_OBJS   =fftmpi.o fftmpi_map.o fft3dfurth.o fft3dlib.o
+	$(info Using FFT library included in VASP...)
 endif
 
 # VASP doesn't really use a prefix for anything, so it's 
@@ -52,6 +57,28 @@ LIB_MAKEVARS=FC=$(F90)
 # Probably shouldn't need to modify anything below this line.
 #
 
+## Capture version based on files in working directory
+VASP_VERSIONS_PRESENT=$(wildcard vasp.5.*.tar.gz)
+
+ifeq ($(words $(VASP_VERSIONS_PRESENT)), 0)
+	$(error No VASP .tar.gz found in current directory -- please supply a vasp.x.x.x.tar.gz file.)
+endif
+
+VASP_SOURCE_FILE=$(lastword $(VASP_VERSIONS_PRESENT) )
+EXTRACTED_VERSION=$(patsubst vasp.%.tar.gz,%,$(VASP_SOURCE_FILE))
+SPLIT_VERSION=$(subst ., ,$(EXTRACTED_VERSION))
+
+VER_MAJ=$(word 1,$(SPLIT_VERSION))
+VER_MIN=$(word 2,$(SPLIT_VERSION))
+VER_MIC=$(word 3,$(SPLIT_VERSION))
+
+VASP_VER = $(VER_MAJ).$(VER_MIN).$(VER_MIC)
+# Note: as a side effect, this also removes anything between the microversion and the .tar.gz
+#  such as the date inserted by our getvasp script. See the drama over the silent replacement of
+#  version 5.3.3 for the rationale behind this.
+
+
+## Put together submake arguments
 BASE_MAKEVARS        =CPP="\$$(CPP_)  -DIFC -DCACHE_SIZE=12000 -DPGF90 -Davoidalloc -DHOST=\\\"LinuxIFC\\\" " 
 SERIAL_MAKEVARS      =$(BASE_MAKEVARS) \
 											'FC=$(F90)' \
@@ -122,17 +149,18 @@ install:
 	:
 
 clean:
-	:
+	-'rm' -Rf $(EXE_DIR) $(SERIAL_NOCD_DIR) $(SERIAL_CD_DIR) $(SERIAL_GAMMA_DIR) $(MPI_NOCD_DIR) $(MPI_CD_DIR) $(MPI_GAMMA_DIR)
 
-distclean:
+distclean: clean
 	:
 
 test check:
+	$(error If only VASP included tests.)
 	# Probably want to ask for a variable that does something like specify the queue submit commands, to test the MPI versions?
 	:
 
-$(SERIAL_NOCD_DIR) $(SERIAL_CD_DIR) $(SERIAL_GAMMA_DIR) $(MPI_NOCD_DIR) $(MPI_CD_DIR) $(MPI_GAMMA_DIR): vasp.$(VER_MAJ).$(VER_MIN).$(VER_MIC).tar.gz
-	mkdir $@ && tar -xzf vasp.$(VER_MAJ).$(VER_MIN).$(VER_MIC).tar.gz --strip-components 1 -C $@
+$(SERIAL_NOCD_DIR) $(SERIAL_CD_DIR) $(SERIAL_GAMMA_DIR) $(MPI_NOCD_DIR) $(MPI_CD_DIR) $(MPI_GAMMA_DIR): $(VASP_SOURCE_FILE) 
+	mkdir $@ && tar -xzf $(VASP_SOURCE_FILE) --strip-components 1 -C $@
 
 $(SERIAL_NOCD_DIR)/vasp: vasp.5.lib/libdmy.a $(SERIAL_NOCD_DIR)
 	cd $(SERIAL_NOCD_DIR) && $(MAKE) -f $(NONLIB_MAKEFILE) $(SERIAL_NOCD_MAKEVARS)
