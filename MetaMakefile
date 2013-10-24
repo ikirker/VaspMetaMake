@@ -10,11 +10,11 @@ CC    =icc
 F90   =ifort
 MPIF90=mpif90
 
-SERIAL_LAPACK_FLAGS=-L$(MKL) -mkl
-SERIAL_BLAS_FLAGS= 
-
 # Older versions of MKL (11 or lower) require 'em64t' here
 INTEL_ARCH=intel64
+
+SERIAL_LAPACK_FLAGS=-L$(MKLROOT)/lib/$(INTEL_ARCH) -mkl
+SERIAL_BLAS_FLAGS= 
 
 SCALAPACK_LD_FLAGS=$(MKLROOT)/lib/$(INTEL_ARCH)/libmkl_scalapack_lp64.a $(MKLROOT)/lib/$(INTEL_ARCH)/libmkl_blacs_lp64.a
 SCALAPACK_CPP_FLAGS=-DscaLAPACK
