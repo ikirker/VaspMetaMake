@@ -10,7 +10,7 @@ CC    =icc
 F90   =ifort
 MPIF90=mpif90
 
-# Older versions of MKL (11 or lower) require 'em64t' here
+# Older versions of MKL require 'em64t' here - check $MKLROOT/lib/
 INTEL_ARCH=intel64
 
 SERIAL_LAPACK_FLAGS=-L$(MKLROOT)/lib/$(INTEL_ARCH) -mkl
@@ -30,13 +30,18 @@ MPI_LAPACK_FLAGS=-Wl,--start-group  \
                  -lm
 MPI_BLAS_FLAGS=
 
-# The FFTWLIB environment variable is set by the FFTW modules
-ifeq ($(FFTWLIB),fftw)
-  SERIAL_FFT_OBJS=fftw3d.o fft3dlib.o $(FFTWDIR)/libfftw3.a
-  MPI_FFT_OBJS   =fftmpiw.o fftmpi_map.o fftw3d.o fft3dlib.o $(FFTWDIR)/libfftw3.a
-  F90 += -I$(FFTWINCLUDE)
-  MPIF90 += -I$(FFTWINCLUDE)
-  $(info Using FFTW from $(FFTWDIR).)
+# Different people seem to set different variables for these (or maybe it varies by version?).
+#  In any case, you can set them here.
+USE_FFTW=TRUE
+FFTW_LIB_DIR=$(FFTWDIR)
+FFTW_INC_DIR=$(FFTWINCLUDE)
+
+ifeq ($(USE_FFTW),TRUE)
+  SERIAL_FFT_OBJS=fftw3d.o fft3dlib.o $(FFTW_LIB_DIR)/libfftw3.a
+  MPI_FFT_OBJS   =fftmpiw.o fftmpi_map.o fftw3d.o fft3dlib.o $(FFTW_LIB_DIR)/libfftw3.a
+  F90 += -I$(FFTW_INC_DIR)
+  MPIF90 += -I$(FFTW_INC_DIR)
+  $(info Using FFTW from $(FFTW_LIB_DIR).)
 else
   SERIAL_FFT_OBJS=fft3dfurth.o fft3dlib.o
   MPI_FFT_OBJS   =fftmpi.o fftmpi_map.o fft3dfurth.o fft3dlib.o
@@ -47,10 +52,10 @@ endif
 #   fine to build and then move later if you like.
 #PREFIX=/opt/vasp-$(VASP_VER)
 
-
 LIB_MAKEFILE   =makefile.linux_ifc_P4
 NONLIB_MAKEFILE=makefile.linux_ifc_P4
 
+# The vasp.5.lib makefile actually seems to work except for needing FC replaced. (It comes set to 'ifc', as if that were still a thing.)
 LIB_MAKEVARS=FC=$(F90)
 
 #######################################################################################
@@ -108,7 +113,9 @@ MPI_GAMMA_MAKEVARS   =$(MPI_MAKEVARS) CPP+=-DwNGZhalf
 
 
 
-# Vasp doesn't install any documentation, so I'm not sure the other things that usually go here are necessary. It might be worth expanding it to include an exec-prefix and the other one (the place for non-binary files) for PSP storage, though?
+# Vasp doesn't install any documentation, so I'm not sure the other things that 
+#  usually go here are necessary. It might be worth expanding it to include an 
+#  exec-prefix and the other one (the place for non-binary files) for PSP storage, though?
 
 BUILD_DIR       =./
 EXE_DIR         =$(BUILD_DIR)/exe
@@ -146,8 +153,8 @@ all: $(ALL_VERSIONS)
 
 .PHONY : all clean install test check distclean
 
-install:
-	$(info Not implemented.)
+install: $(ALL_VERSIONS)
+	$(info install target not implemented.)
 	@:
 
 clean:
@@ -155,6 +162,7 @@ clean:
 
 distclean: clean
 	@:
+	$(info distclean target not implemented.)
 
 test check:
 	$(error If only VASP included tests.)
